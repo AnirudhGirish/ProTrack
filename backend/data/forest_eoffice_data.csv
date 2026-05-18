@@ -1,0 +1,35 @@
+File_No,Subject,Created_Date,Closed_Date,Initiated_By,Current_User,Section,Status,Movements,Remarks
+F101,Tree plantation budget approval,2025-10-13,,Accounts Officer,DCF Hubballi,Administration,Pending,3,Approved
+F102,Wildlife rescue operation report,2025-10-03,2025-10-13,RFO Hubballi,DCF Hubballi,Administration,Completed,2,Under review
+F103,Community awareness program plan,2025-09-26,,ACF Dharwad,Admin Officer,Administration,Pending,3,Awaiting approval
+F104,Vehicle maintenance sanction,2025-10-12,,Wildlife Officer,DCF Hubballi,Administration,Pending,4,Under review
+F105,Compensation for crop damage,2025-09-22,,Legal Officer,ACF Dharwad,Wildlife & Environment,Pending,2,Completed successfully
+F106,Permission for road near forest area,2025-10-13,,RFO Hubballi,RFO Hubballi,Wildlife & Environment,Pending,6,Approved
+F107,Budget allocation for forest guards,2025-10-18,,Accounts Officer,Accounts Officer,Wildlife & Environment,Pending,6,Approved
+F108,Wildlife census summary report,2025-10-14,,Accounts Officer,DFO Dharwad,Administration,Pending,2,Returned for clarification
+F109,Rainwater harvesting project approval,2025-10-10,,Legal Officer,ACF Dharwad,Wildlife & Environment,Pending,3,Under review
+F110,Recruitment of forest guards,2025-10-09,2025-10-17,Accounts Officer,DCF Hubballi,Wildlife & Environment,Completed,6,Returned for clarification
+F111,Community awareness program plan,2025-09-27,,Accounts Officer,DFO Dharwad,Wildlife & Environment,Pending,2,Awaiting approval
+F112,New nursery proposal,2025-09-22,2025-09-30,Legal Officer,DCF Hubballi,Legal & Land,Completed,6,Returned for clarification
+F113,Audit report for FY 2024-25,2025-09-28,2025-10-06,Wildlife Officer,Accounts Officer,Legal & Land,Completed,3,Completed successfully
+F114,Eco-tourism camp proposal,2025-09-27,2025-09-30,ACF Dharwad,DFO Dharwad,Legal & Land,Completed,6,Approved
+F115,Vehicle maintenance sanction,2025-10-15,,RFO Hubballi,RFO Hubballi,Accounts,Pending,6,Returned for clarification
+F116,Timber transport permit,2025-09-28,2025-10-01,Wildlife Officer,Accounts Officer,Legal & Land,Completed,2,Awaiting approval
+F117,Recruitment transfer case,2025-09-25,,Wildlife Officer,Admin Officer,Wildlife & Environment,Pending,2,Under review
+F118,Fire prevention equipment purchase,2025-10-16,2025-10-26,Legal Officer,DCF Hubballi,Administration,Completed,3,Completed successfully
+F119,Budget allocation for forest guards,2025-09-30,,RFO Hubballi,ACF Dharwad,Administration,Pending,2,Awaiting approval
+F120,Permission for road near forest area,2025-09-27,2025-10-01,ACF Dharwad,DFO Dharwad,Accounts,Completed,2,Completed successfully
+F121,Forest patrol scheduling,2025-10-20,2025-10-25,DCF Hubballi,DCF Hubballi,Accounts,Completed,4,Completed successfully
+F122,Forest boundary dispute resolution,2025-10-11,,ACF Dharwad,DFO Dharwad,Wildlife & Environment,Pending,5,Under review
+F123,Recruitment of forest guards,2025-09-30,2025-10-02,Accounts Officer,Admin Officer,Accounts,Completed,6,Under review
+F124,Permission for road near forest area,2025-09-27,2025-10-02,Legal Officer,DFO Dharwad,Administration,Completed,2,Completed successfully
+F125,Forest patrol scheduling,2025-09-26,2025-10-04,ACF Dharwad,DCF Hubballi,Wildlife & Environment,Completed,6,Returned for clarification
+F126,Compensation for crop damage,2025-09-23,,DCF Hubballi,RFO Hubballi,Accounts,Pending,4,Returned for clarification
+F127,Compensation for crop damage,2025-09-21,,RFO Hubballi,DCF Hubballi,Administration,Pending,4,Under review
+F128,Community awareness program plan,2025-10-04,2025-10-09,Admin Officer,ACF Dharwad,Accounts,Completed,5,Returned for clarification
+F129,Rainwater harvesting project approval,2025-10-15,2025-10-19,RFO Dharwad,DFO Dharwad,Administration,Completed,2,Under review
+F130,Forest patrol scheduling,2025-10-05,2025-10-07,RFO Dharwad,DCF Hubballi,Legal & Land,Completed,5,Returned for clarification
+F999,Test file,2025-11-20,,,,Administration,Pending,0,
+F888,Test file for verification,2025-11-20,,,,Administration,Pending,0,
+1,forest,2025-11-21,2025-11-22,,,deptforest,done,0,
+2,forestattack,2025-11-21,2025-11-22,,,forest,active,0,
