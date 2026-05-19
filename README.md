@@ -55,6 +55,14 @@ The system replaces a fragmented vanilla HTML + CSV + Flask prototype with a pro
 | No task self-service | Employees self-assign and track files |
 | No AI insights | Gemini LLM chatbot with full data context |
 
+### 🚀 v2.0 Production Stabilization (Latest Updates)
+- **Deployment Ready:** Full configuration for zero-downtime deployment using Vercel (Frontend SPA) and Railway (FastAPI Backend + PostgreSQL).
+- **Advanced CSV Exporting:** Cross-browser compliant CSV generation utilizing `Blob` creation with FileSaver techniques, completely resolving Safari download blocking.
+- **Robust DB Initialization:** In-memory deduplication during database seeding prevents `IntegrityError` collisions on startup.
+- **Optimized AI Inference:** Switched to the lightning-fast `gemini-2.5-flash-lite` (Flash Lite) model to preserve tokens, reduce latency, and strictly output clean plain text (no markdown formatting).
+- **Graceful Offline Mode:** The chatbot now proactively detects missing API keys or missing Python packages (`google-generativeai`) and falls back to a highly-formatted, descriptive offline analytics mode.
+- **Safe Pagination:** Strict limits on paginated admin API endpoints to prevent integer overflow database failures.
+
 ---
 
 ## Key Features
