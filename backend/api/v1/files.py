@@ -132,7 +132,7 @@ async def update_file_status(
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
-    if current_user.role == "employee" and file.assigned_to != current_user.id:
+    if current_user.role == "employee" and str(file.assigned_to) != str(current_user.id):
         raise HTTPException(status_code=403, detail="You can only update status of files assigned to you")
 
     try:
