@@ -135,7 +135,7 @@ export function StatCard({
 }: {
   label: string;
   value: string | number;
-  variant?: 'default' | 'success' | 'warning' | 'danger';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
   icon?: React.ReactNode;
   trend?: 'up' | 'down' | 'neutral';
   trendValue?: string;
@@ -145,12 +145,14 @@ export function StatCard({
     success: 'before:bg-gradient-to-r before:from-forest-400 before:to-forest-600',
     warning: 'before:bg-gradient-to-r before:from-amber-400 before:to-orange-500',
     danger: 'before:bg-gradient-to-r before:from-red-400 before:to-rose-500',
+    info: 'before:bg-gradient-to-r before:from-indigo-400 before:to-blue-500',
   };
   const valueColor: Record<string, string> = {
     default: 'text-slate-900',
     success: 'text-forest-700',
     warning: 'text-amber-700',
     danger: 'text-red-700',
+    info: 'text-indigo-700',
   };
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
   const trendColor = trend === 'up' ? 'text-forest-600' : trend === 'down' ? 'text-red-500' : 'text-slate-400';
