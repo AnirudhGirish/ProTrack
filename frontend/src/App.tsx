@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage';
 import MyTasksPage from './pages/MyTasksPage';
 import AdminPage from './pages/AdminPage';
 import NotificationsPage from './pages/NotificationsPage';
+import MyProfilePage from './pages/MyProfilePage';
 
 // New Pages
 import LandingPage from './pages/LandingPage';
@@ -43,6 +44,7 @@ function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/my-tasks" element={<MyTasksPage />} />
+          <Route path="/my-profile" element={<MyProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route element={<ProtectedRoute roles={['admin']} />}>
             <Route path="/admin" element={<AdminPage />} />

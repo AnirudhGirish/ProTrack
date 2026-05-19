@@ -185,3 +185,109 @@ def _find_old_pending(db: Session, days_threshold: int = 14, limit: int = 10) ->
             })
     old.sort(key=lambda x: x["pending_days"], reverse=True)
     return old[:limit]
+
+
+def get_employee_performance(db: Session) -> List[Dict]:
+    employees = db.query(User).filter(User.role == "employee", User.is_active == True).all()
+    results = []
+    today = date.today()
+    for emp in employees:
+        assignments = db.query(EmployeeAssignment).filter(
+            EmployeeAssignment.employee_id == emp.id,
+            EmployeeAssignment.unassigned_at.is_(None)
+        ).all()
+        
+        total_assigned = len(assignments)
+        self_taken = sum(1 for a in assignments if a.assigned_by == emp.id)
+        
+        file_ids = [a.file_id for a in assignments]
+        if not file_ids:
+            results.append({
+                "employee_id": emp.employee_id or emp.id,
+                "username": emp.username,
+                "full_name": emp.full_name or "",
+                "section": emp.section or "",
+                "total_assigned": 0,
+                "self_taken": 0,
+                "completed": 0,
+                "in_progress": 0,
+                "due_files": 0,
+                "on_time_pct": 0,
+                "score": 0,
+                "tier": "Needs Improvement"
+            })
+            continue
+
+        files = db.query(File).filter(File.id.in_(file_ids)).all()
+        completed = sum(1 for f in files if f.status == "closed")
+        in_progress = sum(1 for f in files if f.status == "in_progress")
+        pending = len(files) - completed
+        
+        due_files = sum(1 for f in files if f.due_date and f.due_date < today and f.status != "closed")
+        
+        files_with_due_date = [f for f in files if f.due_date and f.status == "closed"]
+        on_time = sum(1 for f in files_with_due_date if f.closed_date and f.closed_date <= f.due_date)
+        on_time_pct = round((on_time / len(files_with_due_date)) * 100, 1) if files_with_due_date else 100.0
+
+        score = round((completed * 1.5) - (pending * 0.5), 2)
+        if score >= 10:
+            tier = "Excellent"
+        elif score >= 5:
+            tier = "Good"
+        else:
+            tier = "Needs Improvement"
+            
+        results.append({
+            "employee_id": emp.employee_id or emp.id,
+            "username": emp.username,
+            "full_name": emp.full_name or "",
+            "section": emp.section or "",
+            "total_assigned": total_assigned,
+            "self_taken": self_taken,
+            "completed": completed,
+            "in_progress": in_progress,
+            "due_files": due_files,
+            "on_time_pct": on_time_pct,
+            "score": score,
+            "tier": tier
+        })
+        
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results
+
+
+def get_monthly_trend(db: Session) -> List[Dict]:
+    import calendar
+    today = date.today()
+    current_month = today.month
+    current_year = today.year
+    
+    months = []
+    for i in range(11, -1, -1):
+        m = current_month - i
+        y = current_year
+        while m <= 0:
+            m += 12
+            y -= 1
+        d = date(y, m, 1)
+        month_label = f"{calendar.month_abbr[d.month]} {d.year}"
+        months.append({"month": month_label, "intake": 0, "disposal": 0, "sort_key": d.strftime("%Y-%m")})
+        
+    month_dict = {m["sort_key"]: m for m in months}
+    start_date_str = months[0]["sort_key"] + "-01"
+    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    
+    created_files = db.query(File).filter(File.created_date >= start_date).all()
+    for f in created_files:
+        key = f.created_date.strftime("%Y-%m")
+        if key in month_dict:
+            month_dict[key]["intake"] += 1
+            
+    closed_files = db.query(File).filter(File.closed_date >= start_date, File.status == "closed").all()
+    for f in closed_files:
+        if f.closed_date:
+            key = f.closed_date.strftime("%Y-%m")
+            if key in month_dict:
+                month_dict[key]["disposal"] += 1
+            
+    return months

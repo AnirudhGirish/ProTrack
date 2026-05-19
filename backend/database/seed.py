@@ -19,6 +19,7 @@ from models.notification import Notification  # noqa: F401  → notifications
 from models.sla import SLAConfig      # noqa: F401  → sla_config
 from models.chat import ChatSession, ChatMessage  # noqa: F401  → chat_sessions, chat_messages
 from models.csv_import import CSVImport  # noqa: F401  → csv_imports
+from models.section import Section       # noqa: F401  → sections
 
 from services.auth_service import hash_password
 
@@ -71,6 +72,7 @@ def seed_database() -> None:
             logger.info("Default admin user already exists — skipping.")
 
         # ── Default SLA configs for standard sections ────────────────────────
+        added_sections = set()
         for section in DEFAULT_SECTIONS:
             existing_sla = (
                 db.query(SLAConfig).filter(SLAConfig.section == section).first()
@@ -78,6 +80,21 @@ def seed_database() -> None:
             if not existing_sla:
                 db.add(SLAConfig(section=section))
                 logger.info(f"Created default SLA config for section: {section}")
+
+            existing_section = db.query(Section).filter(Section.name == section).first()
+            if not existing_section and section not in added_sections:
+                db.add(Section(name=section))
+                added_sections.add(section)
+                logger.info(f"Created default Section: {section}")
+                
+        # ── Seed from existing files (if any missing) ────────────────────────
+        distinct_file_sections = db.query(File.section).distinct().all()
+        for (sec_name,) in distinct_file_sections:
+            if sec_name and sec_name not in added_sections:
+                if not db.query(Section).filter(Section.name == sec_name).first():
+                    db.add(Section(name=sec_name))
+                    added_sections.add(sec_name)
+                    logger.info(f"Created Section from existing file: {sec_name}")
 
         db.commit()
         logger.info("Database seeding complete.")

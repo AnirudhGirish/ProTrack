@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useEffect, useState } from 'react';
 import { notificationsApi } from '../../api/endpoints';
-import { Bell, LogOut, LayoutDashboard, CheckSquare, Shield, Leaf, Menu, X, ChevronDown } from 'lucide-react';
+import { Bell, LogOut, LayoutDashboard, CheckSquare, Shield, Leaf, Menu, X, ChevronDown, User } from 'lucide-react';
 import Footer from './Footer';
 import FloatingChatbot from '../chat/FloatingChatbot';
 
@@ -36,6 +36,7 @@ export default function AppLayout() {
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-4 h-4" />, roles: ['admin', 'employee'] },
     { name: 'My Tasks', path: '/my-tasks', icon: <CheckSquare className="w-4 h-4" />, roles: ['employee'] },
+    { name: 'My Profile', path: '/my-profile', icon: <User className="w-4 h-4" />, roles: ['employee', 'section_head'] },
     { name: 'Admin', path: '/admin', icon: <Shield className="w-4 h-4" />, roles: ['admin'] },
   ];
 

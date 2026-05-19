@@ -7,9 +7,10 @@ from models.notification import Notification
 from models.sla import SLAConfig
 from models.chat import ChatSession, ChatMessage
 from models.csv_import import CSVImport
+from models.section import Section
 
 __all__ = [
     "User", "UserRole", "File", "FileStatusLog", "EmployeeAssignment",
     "AuditLog", "Notification", "SLAConfig", "ChatSession", "ChatMessage",
-    "CSVImport"
+    "CSVImport", "Section"
 ]

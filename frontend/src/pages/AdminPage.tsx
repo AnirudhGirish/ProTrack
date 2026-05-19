@@ -1,17 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { adminApi, filesApi, assignmentsApi } from '../api/endpoints';
+import { adminApi, filesApi, assignmentsApi, productivityApi } from '../api/endpoints';
 import { Card, Spinner, StatCard, SectionHeader } from '../components/common/UIComponents';
 import type { User, File as AppFile } from '../types';
 import toast from 'react-hot-toast';
-import { Users, FileText, CheckCircle, Clock, Upload, Download, Trash2, Plus, Shield, UserCheck, ChevronDown } from 'lucide-react';
+import { Users, FileText, CheckCircle, Clock, Upload, Download, Trash2, Plus, Shield, UserCheck, ChevronDown, Edit2, BarChart2, Layers } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
-type AdminTab = 'overview' | 'files' | 'users' | 'import';
+type AdminTab = 'overview' | 'files' | 'employees' | 'sections' | 'users' | 'import';
 
 const TABS: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
-  { key: 'overview', label: 'Overview', icon: <CheckCircle className="w-4 h-4" /> },
+  { key: 'overview', label: 'Overview', icon: <BarChart2 className="w-4 h-4" /> },
   { key: 'files', label: 'Files', icon: <FileText className="w-4 h-4" /> },
+  { key: 'employees', label: 'Employees', icon: <UserCheck className="w-4 h-4" /> },
+  { key: 'sections', label: 'Sections', icon: <Layers className="w-4 h-4" /> },
   { key: 'users', label: 'Users', icon: <Users className="w-4 h-4" /> },
-  { key: 'import', label: 'CSV Import', icon: <Upload className="w-4 h-4" /> },
+  { key: 'import', label: 'Data Import/Export', icon: <Download className="w-4 h-4" /> },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -28,21 +31,44 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Record<string, number>>({});
   const [files, setFiles] = useState<AppFile[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [sections, setSections] = useState<{id: string, name: string}[]>([]);
+  const [empPerformance, setEmpPerformance] = useState<any[]>([]);
+  const [monthlyTrend, setMonthlyTrend] = useState<any[]>([]);
+  const [sectionBreakdown, setSectionBreakdown] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAll = async () => {
     setLoading(true);
-    Promise.all([
-      adminApi.stats().then(r => setStats(r.data)).catch(() => {}),
-      filesApi.list({ page_size: 100 }).then(r => setFiles(r.data.items)).catch(() => {}),
-      adminApi.listUsers({ page_size: 100 }).then(r => setUsers(r.data.items)).catch(() => {}),
-    ]).finally(() => setLoading(false));
-  }, [tab]);
+    try {
+      const [
+        statsRes, filesRes, usersRes, sectionsRes, empPerfRes, trendRes, secBreakdownRes
+      ] = await Promise.all([
+        adminApi.stats().catch(() => ({ data: {} })),
+        filesApi.list({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
+        adminApi.listUsers({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
+        adminApi.getSections().catch(() => ({ data: [] })),
+        adminApi.employeePerformance().catch(() => ({ data: [] })),
+        adminApi.monthlyTrend().catch(() => ({ data: [] })),
+        productivityApi.sections().catch(() => ({ data: [] }))
+      ]);
+      setStats(statsRes.data as Record<string, number>);
+      setFiles(filesRes.data.items);
+      setUsers(usersRes.data.items);
+      setSections(sectionsRes.data);
+      setEmpPerformance(empPerfRes.data);
+      setMonthlyTrend(trendRes.data);
+      setSectionBreakdown(secBreakdownRes.data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchAll(); }, []);
 
   if (loading) return <Spinner />;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-12">
       {/* ── Page Header ── */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-morning-500 to-morning-700 flex items-center justify-center shadow-md shadow-morning-500/20">
@@ -55,7 +81,7 @@ export default function AdminPage() {
       </div>
 
       {/* ── Tab Navigation ── */}
-      <div className="flex gap-1 bg-slate-100/80 p-1.5 rounded-2xl w-fit">
+      <div className="flex flex-wrap gap-1 bg-slate-100/80 p-1.5 rounded-2xl w-fit">
         {TABS.map(t => (
           <button
             key={t.key}
@@ -73,16 +99,25 @@ export default function AdminPage() {
       </div>
 
       {/* ── Tab Content ── */}
-      {tab === 'overview' && <OverviewTab stats={stats} />}
-      {tab === 'files' && <FilesTab files={files} users={users} />}
-      {tab === 'users' && <UsersTab users={users} setUsers={setUsers} />}
+      {tab === 'overview' && (
+        <OverviewTab 
+          stats={stats} 
+          empPerformance={empPerformance} 
+          sectionBreakdown={sectionBreakdown} 
+          monthlyTrend={monthlyTrend} 
+        />
+      )}
+      {tab === 'files' && <FilesTab files={files} users={users} sections={sections} refresh={fetchAll} />}
+      {tab === 'employees' && <EmployeesTab performance={empPerformance} />}
+      {tab === 'sections' && <SectionsTab sections={sections} breakdown={sectionBreakdown} refresh={fetchAll} />}
+      {tab === 'users' && <UsersTab users={users} sections={sections} refresh={fetchAll} />}
       {tab === 'import' && <ImportTab />}
     </div>
   );
 }
 
 /* ─── Overview Tab ──────────────────────────── */
-function OverviewTab({ stats }: { stats: Record<string, number> }) {
+function OverviewTab({ stats, empPerformance, sectionBreakdown, monthlyTrend }: { stats: any, empPerformance: any[], sectionBreakdown: any[], monthlyTrend: any[] }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -91,12 +126,83 @@ function OverviewTab({ stats }: { stats: Record<string, number> }) {
         <StatCard label="Pending" value={stats.pending ?? 0} variant="warning" icon={<Clock className="w-4 h-4" />} />
         <StatCard label="Active Users" value={stats.total_users ?? 0} icon={<Users className="w-4 h-4" />} />
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <SectionHeader title="Pending vs Completed by Section" />
+          <div className="h-72 mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sectionBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis dataKey="section" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
+                <RechartsTooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                <Bar dataKey="completed" name="Completed" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="pending" name="Pending" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card>
+          <SectionHeader title="File Volume Trend (Last 12 Months)" />
+          <div className="h-72 mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
+                <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                <Line type="monotone" dataKey="intake" name="Intake" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="disposal" name="Disposal" stroke="#10B981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <SectionHeader title="Employee Performance Heatmap" action={
+          <span className="text-xs text-slate-400">Scores by Tier</span>
+        } />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mt-4">
+          {empPerformance.map(emp => {
+            const isExcellent = emp.tier === 'Excellent';
+            const isGood = emp.tier === 'Good';
+            return (
+              <div key={emp.employee_id} className={`p-4 rounded-xl border flex flex-col justify-between h-24 ${
+                isExcellent ? 'bg-emerald-50 border-emerald-200' :
+                isGood ? 'bg-blue-50 border-blue-200' :
+                'bg-amber-50 border-amber-200'
+              }`}>
+                <div className="flex justify-between items-start">
+                  <span className={`text-xs font-bold truncate pr-2 ${
+                    isExcellent ? 'text-emerald-800' : isGood ? 'text-blue-800' : 'text-amber-800'
+                  }`}>{emp.username}</span>
+                </div>
+                <div className="flex items-end justify-between">
+                  <span className={`text-2xl font-black ${
+                    isExcellent ? 'text-emerald-600' : isGood ? 'text-blue-600' : 'text-amber-600'
+                  }`}>{emp.score}</span>
+                  <span className={`text-[10px] uppercase font-bold tracking-wider ${
+                    isExcellent ? 'text-emerald-500' : isGood ? 'text-blue-500' : 'text-amber-500'
+                  }`}>
+                    {isExcellent ? 'EXC' : isGood ? 'GOOD' : 'IMP'}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
 }
 
 /* ─── Files Tab ─────────────────────────────── */
-function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
+function FilesTab({ files, users, sections, refresh }: { files: AppFile[]; users: User[], sections: any[], refresh: () => void }) {
   const [form, setForm] = useState({
     file_no: '', subject: '', section: '', status: 'received', priority: 'normal', created_date: '',
   });
@@ -104,11 +210,9 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [assigningFile, setAssigningFile] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Record<string, { name: string; id: string }>>({});
-  const [localFiles, setLocalFiles] = useState<AppFile[]>(files);
+  const [search, setSearch] = useState('');
 
-  useEffect(() => { setLocalFiles(files); }, [files]);
-
-  // Load current assignments map: file_id -> {name, id}
+  // Load assignments
   useEffect(() => {
     assignmentsApi.list().then(res => {
       const map: Record<string, { name: string; id: string }> = {};
@@ -119,12 +223,16 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
     }).catch(() => {});
   }, [files]);
 
-  // Only employees (not admins) are valid assignment targets
   const employees = users.filter(u => u.role === 'employee' && u.is_active);
+  const filteredFiles = files.filter(f => 
+    (f.file_no?.toLowerCase() || '').includes(search.toLowerCase()) ||
+    (f.subject?.toLowerCase() || '').includes(search.toLowerCase()) ||
+    (f.section?.toLowerCase() || '').includes(search.toLowerCase())
+  );
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.file_no.trim() || !form.subject.trim() || !form.section.trim()) {
+    if (!form.file_no.trim() || !form.subject.trim() || !form.section) {
       toast.error('File No, Subject, and Section are required');
       return;
     }
@@ -133,8 +241,9 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
       await filesApi.create({ ...form, created_date: form.created_date || new Date().toISOString().split('T')[0] });
       toast.success('File created successfully');
       setForm({ file_no: '', subject: '', section: '', status: 'received', priority: 'normal', created_date: '' });
+      refresh();
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Failed to create file');
+      toast.error((err as any)?.response?.data?.detail || 'Failed to create file');
     } finally {
       setSaving(false);
     }
@@ -146,7 +255,7 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
     try {
       await filesApi.delete(id);
       toast.success('File deleted');
-      setLocalFiles(prev => prev.filter(f => f.id !== id));
+      refresh();
     } catch { toast.error('Failed to delete file'); }
     finally { setDeletingId(null); }
   };
@@ -159,10 +268,9 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
       const emp = employees.find(e => e.id === employeeId);
       const empName = emp?.full_name || emp?.username || 'employee';
       toast.success(`File ${fileNo} assigned to ${empName}`);
-      // Update local assignment map
       setAssignments(prev => ({ ...prev, [fileId]: { name: empName, id: employeeId } }));
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Failed to assign file');
+      toast.error((err as any)?.response?.data?.detail || 'Failed to assign file');
     } finally {
       setAssigningFile(null);
     }
@@ -172,9 +280,7 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
     <div className="space-y-6">
       {/* Add File Form */}
       <Card>
-        <SectionHeader title="Add New File" action={
-          <span className="text-xs text-slate-400">{localFiles.length} total files</span>
-        } />
+        <SectionHeader title="Add New File" />
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
@@ -189,8 +295,10 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Section *</label>
-              <input value={form.section} onChange={e => setForm({ ...form, section: e.target.value })}
-                placeholder="e.g. Legal & Land" className="form-input" />
+              <select value={form.section} onChange={e => setForm({ ...form, section: e.target.value })} className="form-select">
+                <option value="">Select section...</option>
+                {sections.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Priority</label>
@@ -217,14 +325,19 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
 
       {/* Files Table */}
       <Card className="p-0">
-        <div className="p-6 pb-0">
-          <SectionHeader title={`All Files (${localFiles.length})`} action={
-            <span className="text-xs text-slate-400">Assign files to employees using the dropdown</span>
-          } />
+        <div className="p-6 pb-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <SectionHeader title={`All Files (${filteredFiles.length})`} />
+          <input 
+            type="text" 
+            placeholder="Search files..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)}
+            className="form-input w-full sm:w-64"
+          />
         </div>
-        <div className="overflow-auto max-h-[600px]">
+        <div className="overflow-auto max-h-[600px] mt-4">
           <table className="data-table">
-            <thead className="sticky top-0 z-10">
+            <thead className="sticky top-0 z-10 bg-white">
               <tr>
                 <th>File No</th>
                 <th>Subject</th>
@@ -233,18 +346,21 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
                 <th>Priority</th>
                 <th>Assigned To</th>
                 <th>Assign Employee</th>
-                <th className="text-right pr-6">Delete</th>
+                <th className="text-right pr-6">Action</th>
               </tr>
             </thead>
             <tbody>
-              {localFiles.map(f => {
+              {filteredFiles.map(f => {
                 const currentAssignee = assignments[f.id];
                 const isAssigning = assigningFile === f.id;
+                // Filter employees for this specific file's section
+                const sectionEmps = employees.filter(e => e.section === f.section);
+                
                 return (
                   <tr key={f.id}>
                     <td className="font-bold text-slate-800 font-mono text-xs">{f.file_no}</td>
                     <td className="max-w-[160px]">
-                      <span className="block truncate text-slate-700 text-sm">{f.subject}</span>
+                      <span className="block truncate text-slate-700 text-sm" title={f.subject}>{f.subject}</span>
                     </td>
                     <td className="text-slate-500 text-sm">{f.section}</td>
                     <td>
@@ -283,9 +399,9 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
                             onChange={e => handleAssign(f.id, e.target.value, f.file_no)}
                           >
                             <option value="">Select employee…</option>
-                            {employees.map(emp => (
+                            {sectionEmps.map(emp => (
                               <option key={emp.id} value={emp.id}>
-                                {emp.full_name || emp.username}{emp.section ? ` (${emp.section})` : ''}
+                                {emp.full_name || emp.username}
                               </option>
                             ))}
                           </select>
@@ -318,23 +434,226 @@ function FilesTab({ files, users }: { files: AppFile[]; users: User[] }) {
   );
 }
 
+/* ─── Employees Tab ─────────────────────────── */
+function EmployeesTab({ performance }: { performance: any[] }) {
+  const [search, setSearch] = useState('');
+
+  const filtered = performance.filter(p => 
+    (p.username?.toLowerCase() || '').includes(search.toLowerCase()) ||
+    (p.full_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
+    (p.employee_id?.toLowerCase() || '').includes(search.toLowerCase())
+  );
+
+  return (
+    <Card className="p-0">
+      <div className="p-6 pb-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <SectionHeader title={`Employee Performance (${filtered.length})`} />
+        <input 
+          type="text" 
+          placeholder="Search by name or ID..." 
+          value={search} 
+          onChange={e => setSearch(e.target.value)}
+          className="form-input w-full sm:w-64"
+        />
+      </div>
+      <div className="overflow-auto mt-4">
+        <table className="data-table">
+          <thead className="bg-slate-50 border-y border-slate-200">
+            <tr>
+              <th>Employee</th>
+              <th>Section</th>
+              <th>Assigned</th>
+              <th>Self-Taken</th>
+              <th>Completed</th>
+              <th>In Progress</th>
+              <th>Due</th>
+              <th>On-Time %</th>
+              <th>Score</th>
+              <th>Tier</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(p => (
+              <tr key={p.employee_id}>
+                <td>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-slate-800">{p.full_name || p.username}</span>
+                    <span className="text-xs text-slate-400 font-mono">{p.employee_id}</span>
+                  </div>
+                </td>
+                <td className="text-sm text-slate-600">{p.section}</td>
+                <td className="font-semibold text-slate-700">{p.total_assigned}</td>
+                <td className="text-slate-600">{p.self_taken}</td>
+                <td className="text-emerald-600 font-semibold">{p.completed}</td>
+                <td className="text-blue-600">{p.in_progress}</td>
+                <td className={`font-semibold ${p.due_files > 0 ? 'text-red-500' : 'text-slate-500'}`}>{p.due_files}</td>
+                <td className="font-semibold">{p.on_time_pct}%</td>
+                <td className="font-black text-slate-800">{p.score}</td>
+                <td>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                    p.tier === 'Excellent' ? 'bg-emerald-100 text-emerald-800' :
+                    p.tier === 'Good' ? 'bg-blue-100 text-blue-800' :
+                    'bg-amber-100 text-amber-800'
+                  }`}>
+                    {p.tier}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+/* ─── Sections Tab ──────────────────────────── */
+function SectionsTab({ sections, breakdown, refresh }: { sections: any[], breakdown: any[], refresh: () => void }) {
+  const [newSec, setNewSec] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newSec.trim()) return;
+    setAdding(true);
+    try {
+      await adminApi.addSection(newSec);
+      toast.success('Section added');
+      setNewSec('');
+      refresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || 'Failed to add section');
+    } finally { setAdding(false); }
+  };
+
+  const handleDelete = async (name: string) => {
+    if (!confirm(`Delete section "${name}"?`)) return;
+    try {
+      await adminApi.deleteSection(name);
+      toast.success('Section deleted');
+      refresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || 'Failed to delete section');
+    }
+  };
+
+  // Merge sections list with stats from breakdown
+  const combined = sections.map(s => {
+    const b = breakdown.find(x => x.section === s.name) || {
+      total: 0, completed: 0, pending: 0, avg_processing_days: 0, score: 0
+    };
+    const compPct = b.total ? Math.round((b.completed / b.total) * 100) : 0;
+    const score = Math.round((compPct * 0.6) + 40); // Simple UI approximation
+    return { ...s, ...b, compPct, score };
+  });
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <SectionHeader title="Manage Sections" />
+        <form onSubmit={handleAdd} className="flex gap-4 mt-4 max-w-md">
+          <input 
+            value={newSec} 
+            onChange={e => setNewSec(e.target.value)}
+            placeholder="New section name..." 
+            className="form-input flex-1" 
+          />
+          <button type="submit" disabled={adding || !newSec.trim()}
+            className="px-6 py-2.5 rounded-xl bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 disabled:opacity-50 transition btn-press">
+            {adding ? 'Adding...' : 'Add Section'}
+          </button>
+        </form>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {combined.map(sec => (
+          <div key={sec.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="font-bold text-slate-800 text-lg">{sec.name}</h3>
+              <button onClick={() => handleDelete(sec.name)} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <p className="text-xs text-slate-500 font-semibold mb-1 uppercase tracking-wide">Completion Rate</p>
+                <p className="text-xl font-bold text-slate-800">{sec.compPct}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-semibold mb-1 uppercase tracking-wide">Avg Processing</p>
+                <p className="text-xl font-bold text-slate-800">{sec.avg_processing_days ? `${sec.avg_processing_days} days` : '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-semibold mb-1 uppercase tracking-wide">Total Files</p>
+                <p className="text-xl font-bold text-slate-800">{sec.total}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-semibold mb-1 uppercase tracking-wide">Pending</p>
+                <p className="text-xl font-bold text-amber-600">{sec.pending}</p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex justify-between items-end">
+              <span className="text-sm font-semibold text-slate-500">Section Score</span>
+              <span className="text-3xl font-black text-forest-600">{sec.score}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Users Tab ─────────────────────────────── */
-function UsersTab({ users, setUsers }: { users: User[]; setUsers: (u: User[]) => void }) {
+function UsersTab({ users, sections, refresh }: { users: User[], sections: any[], refresh: () => void }) {
   const [form, setForm] = useState({ username: '', password: '', role: 'employee', employee_id: '', section: '', full_name: '' });
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [editUser, setEditUser] = useState<User | null>(null);
+
+  const filtered = users.filter(u => 
+    (u.username?.toLowerCase() || '').includes(search.toLowerCase()) ||
+    (u.full_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
+    (u.section?.toLowerCase() || '').includes(search.toLowerCase()) ||
+    (u.role?.toLowerCase() || '').includes(search.toLowerCase())
+  );
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.username || !form.password) { toast.error('Username and password are required'); return; }
     setSaving(true);
     try {
-      const res = await adminApi.createUser(form);
-      setUsers([res.data, ...users]);
+      await adminApi.createUser(form as any);
       toast.success(`User "${form.username}" created`);
       setForm({ username: '', password: '', role: 'employee', employee_id: '', section: '', full_name: '' });
-    } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Failed to create user');
+      refresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || 'Failed to create user');
     } finally { setSaving(false); }
+  };
+
+  const handleEditSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+    try {
+      await adminApi.updateUser(editUser.id, editUser);
+      toast.success('User updated');
+      setEditUser(null);
+      refresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || 'Failed to update user');
+    }
+  };
+
+  const handleDeactivate = async (id: string, currentStatus: boolean) => {
+    try {
+      await adminApi.updateUser(id, { is_active: !currentStatus });
+      toast.success(`User ${currentStatus ? 'deactivated' : 'activated'}`);
+      refresh();
+    } catch {
+      toast.error('Failed to change user status');
+    }
   };
 
   const ROLE_COLORS: Record<string, string> = {
@@ -348,9 +667,7 @@ function UsersTab({ users, setUsers }: { users: User[]; setUsers: (u: User[]) =>
     <div className="space-y-6">
       {/* Add User Form */}
       <Card>
-        <SectionHeader title="Add New User" action={
-          <span className="text-xs text-slate-400">{users.length} total users</span>
-        } />
+        <SectionHeader title="Add New User" />
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
@@ -384,8 +701,10 @@ function UsersTab({ users, setUsers }: { users: User[]; setUsers: (u: User[]) =>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Section</label>
-              <input value={form.section} onChange={e => setForm({ ...form, section: e.target.value })}
-                placeholder="e.g. Legal & Land" className="form-input" />
+              <select value={form.section} onChange={e => setForm({ ...form, section: e.target.value })} className="form-select">
+                <option value="">Select section...</option>
+                {sections.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
             </div>
           </div>
           <button type="submit" disabled={saving}
@@ -398,12 +717,19 @@ function UsersTab({ users, setUsers }: { users: User[]; setUsers: (u: User[]) =>
 
       {/* Users Table */}
       <Card className="p-0">
-        <div className="p-6 pb-0">
-          <SectionHeader title={`System Users (${users.length})`} />
+        <div className="p-6 pb-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <SectionHeader title={`System Users (${filtered.length})`} />
+          <input 
+            type="text" 
+            placeholder="Search users..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)}
+            className="form-input w-full sm:w-64"
+          />
         </div>
-        <div className="overflow-auto">
+        <div className="overflow-auto mt-4">
           <table className="data-table">
-            <thead>
+            <thead className="bg-slate-50 border-y border-slate-200">
               <tr>
                 <th>Username</th>
                 <th>Full Name</th>
@@ -411,10 +737,11 @@ function UsersTab({ users, setUsers }: { users: User[]; setUsers: (u: User[]) =>
                 <th>Section</th>
                 <th>Employee ID</th>
                 <th>Status</th>
+                <th className="text-right pr-6">Action</th>
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
+              {filtered.map(u => (
                 <tr key={u.id}>
                   <td className="font-bold text-slate-800 font-mono text-xs">{u.username}</td>
                   <td className="text-slate-700 text-sm">{u.full_name || '—'}</td>
@@ -426,9 +753,19 @@ function UsersTab({ users, setUsers }: { users: User[]; setUsers: (u: User[]) =>
                   <td className="text-slate-500 text-sm">{u.section || '—'}</td>
                   <td className="text-slate-500 text-xs font-mono">{u.employee_id || '—'}</td>
                   <td>
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${u.is_active ? 'bg-forest-50 text-forest-700' : 'bg-red-50 text-red-600'}`}>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${u.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
                       {u.is_active ? '● Active' : '○ Inactive'}
                     </span>
+                  </td>
+                  <td className="text-right pr-6">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setEditUser(u)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeactivate(u.id, u.is_active)} className={`p-1.5 rounded-lg transition ${u.is_active ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-emerald-500 hover:bg-emerald-50'}`}>
+                        {u.is_active ? <Trash2 className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -436,6 +773,43 @@ function UsersTab({ users, setUsers }: { users: User[]; setUsers: (u: User[]) =>
           </table>
         </div>
       </Card>
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">Edit User</h3>
+            </div>
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full Name</label>
+                <input value={editUser.full_name || ''} onChange={e => setEditUser({...editUser, full_name: e.target.value})} className="form-input" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Role</label>
+                <select value={editUser.role} onChange={e => setEditUser({...editUser, role: e.target.value as any})} className="form-select">
+                  <option value="employee">Employee</option>
+                  <option value="section_head">Section Head</option>
+                  <option value="admin">Admin</option>
+                  <option value="readonly">Read Only</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Section</label>
+                <select value={editUser.section || ''} onChange={e => setEditUser({...editUser, section: e.target.value})} className="form-select">
+                  <option value="">None</option>
+                  {sections.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setEditUser(null)} className="flex-1 py-2 rounded-xl border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button type="submit" className="flex-1 py-2 rounded-xl bg-forest-600 text-white font-semibold hover:bg-forest-700">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -451,33 +825,45 @@ function ImportTab() {
       const res = await adminApi.importCsv(file);
       toast.success(res.data.message || 'CSV imported successfully');
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Import failed');
+      toast.error((err as any)?.response?.data?.detail || 'Import failed');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleUpload(file);
-    e.target.value = '';
-  };
-
-  const handleExport = async () => {
+  const handleExport = async (type: 'files' | 'employees' | 'sections') => {
     try {
-      const res = await adminApi.exportCsv();
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const call = type === 'files' ? adminApi.exportCsv() :
+                   type === 'employees' ? adminApi.exportEmployeesCsv() :
+                   adminApi.exportSectionsCsv();
+                   
+      const res = await call;
+      // Ensure the Blob has the correct CSV MIME type
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+      
+      // Use standard modern approach for blob downloading
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `forest_eoffice_export_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a); a.click(); a.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success('CSV downloaded');
-    } catch { toast.error('Export failed'); }
+      a.style.display = 'none';
+      a.href = url;
+      a.setAttribute('download', `${type}_export_data.csv`);
+      document.body.appendChild(a); 
+      
+      // Programmatically click
+      a.click(); 
+      
+      // Cleanup with slight delay to ensure browser registers the click before removal
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 500);
+      
+      toast.success(`CSV downloaded (${type})`);
+    } catch { toast.error(`Export failed for ${type}`); }
   };
 
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Import */}
+    <div className="max-w-4xl space-y-6">
       <Card>
         <SectionHeader title="Import CSV" />
         <p className="text-sm text-slate-500 mb-6">
@@ -485,14 +871,9 @@ function ImportTab() {
           <code className="ml-1 text-xs bg-slate-100 text-morning-700 px-1.5 py-0.5 rounded font-mono">file_no, subject, section, priority, status, created_date</code>
         </p>
 
-        {/* Drop zone */}
         <label
           className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
-            dragOver
-              ? 'border-forest-400 bg-forest-50'
-              : uploading
-              ? 'border-slate-200 bg-slate-50 cursor-wait'
-              : 'border-slate-200 bg-slate-50 hover:border-forest-300 hover:bg-forest-50/50'
+            dragOver ? 'border-forest-400 bg-forest-50' : uploading ? 'border-slate-200 bg-slate-50 cursor-wait' : 'border-slate-200 bg-slate-50 hover:border-forest-300 hover:bg-forest-50/50'
           }`}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -503,7 +884,7 @@ function ImportTab() {
             else toast.error('Please drop a .csv file');
           }}
         >
-          <input type="file" accept=".csv" onChange={handleFileInput} className="hidden" disabled={uploading} />
+          <input type="file" accept=".csv" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} className="hidden" disabled={uploading} />
           {uploading ? (
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-forest-500 animate-spin" />
@@ -519,17 +900,20 @@ function ImportTab() {
         </label>
       </Card>
 
-      {/* Export */}
       <Card>
         <SectionHeader title="Export Data" />
-        <p className="text-sm text-slate-500 mb-5">Download all current file data as a CSV for backups or external analysis.</p>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 font-semibold text-sm transition shadow-sm btn-press"
-        >
-          <Download className="w-4 h-4 text-slate-500" />
-          Download Current Data as CSV
-        </button>
+        <p className="text-sm text-slate-500 mb-5">Download system data for external reporting and analysis.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <button onClick={() => handleExport('files')} className="flex items-center justify-center gap-2.5 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300 font-semibold text-sm transition shadow-sm btn-press">
+            <Download className="w-4 h-4 text-slate-500" /> Export Files
+          </button>
+          <button onClick={() => handleExport('employees')} className="flex items-center justify-center gap-2.5 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300 font-semibold text-sm transition shadow-sm btn-press">
+            <Download className="w-4 h-4 text-slate-500" /> Export Employees
+          </button>
+          <button onClick={() => handleExport('sections')} className="flex items-center justify-center gap-2.5 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300 font-semibold text-sm transition shadow-sm btn-press">
+            <Download className="w-4 h-4 text-slate-500" /> Export Sections
+          </button>
+        </div>
       </Card>
     </div>
   );

@@ -7,11 +7,13 @@ from models.user import User
 from models.file import File as FileModel
 from models.sla import SLAConfig
 from models.csv_import import CSVImport
+from models.section import Section
 from schemas.auth import UserCreate, UserUpdate, UserResponse
 from services.auth_service import hash_password
 from services.audit_service import log_audit
 from api.deps import get_current_admin
 from utils.pagination import paginate
+from services.productivity_service import get_employee_performance, get_monthly_trend, _compute_section_breakdown
 import pandas as pd
 import io
 import csv
@@ -316,3 +318,134 @@ async def system_stats(
         "pending": pending,
         "sections": db.query(FileModel.section).distinct().count(),
     }
+
+
+@router.get("/sections")
+async def list_sections(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    sections = db.query(Section).order_by(Section.name).all()
+    # Merge with distinct file sections just in case
+    file_sections = db.query(FileModel.section).distinct().all()
+    file_sec_names = {s[0] for s in file_sections}
+    db_sec_names = {s.name for s in sections}
+    missing = file_sec_names - db_sec_names
+    for m in missing:
+        if m:
+            db.add(Section(name=m))
+    if missing:
+        db.commit()
+        sections = db.query(Section).order_by(Section.name).all()
+    return [{"id": s.id, "name": s.name} for s in sections]
+
+
+@router.post("/sections", status_code=201)
+async def create_section(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    name = data.get("name")
+    if not name or not name.strip():
+        raise HTTPException(status_code=400, detail="Section name is required")
+    name = name.strip()
+    existing = db.query(Section).filter(Section.name == name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Section already exists")
+    sec = Section(name=name)
+    db.add(sec)
+    db.commit()
+    return {"id": sec.id, "name": sec.name}
+
+
+@router.delete("/sections/{name}")
+async def delete_section(
+    name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    # check if any files exist in this section
+    files_exist = db.query(FileModel).filter(FileModel.section == name).first()
+    if files_exist:
+        raise HTTPException(status_code=400, detail="Cannot delete section with existing files. Reassign them first.")
+    
+    sec = db.query(Section).filter(Section.name == name).first()
+    if not sec:
+        raise HTTPException(status_code=404, detail="Section not found")
+    
+    db.delete(sec)
+    db.commit()
+    return {"message": f"Section '{name}' deleted"}
+
+
+@router.get("/employee-performance")
+async def get_emp_perf(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    return get_employee_performance(db)
+
+
+@router.get("/monthly-trend")
+async def get_mth_trend(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    return get_monthly_trend(db)
+
+
+@router.get("/export-employees-csv")
+async def export_employees_csv(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    perfs = get_employee_performance(db)
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow([
+        "Employee_ID", "Username", "Full_Name", "Section", "Total_Assigned",
+        "Self_Taken", "Completed", "In_Progress", "Due_Files", "On_Time_PCT", "Score", "Tier"
+    ])
+    for p in perfs:
+        writer.writerow([
+            p["employee_id"], p["username"], p["full_name"], p["section"],
+            p["total_assigned"], p["self_taken"], p["completed"], p["in_progress"],
+            p["due_files"], p["on_time_pct"], p["score"], p["tier"]
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=employees_performance_{datetime.utcnow().date()}.csv"},
+    )
+
+
+@router.get("/export-sections-csv")
+async def export_sections_csv(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    sections = _compute_section_breakdown(db)
+    # calculate completion %, on time, score
+    from services.productivity_service import get_employee_performance
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow([
+        "Section", "Total_Files", "Completed", "Pending", "Completion_PCT",
+        "Avg_Processing_Days", "Score"
+    ])
+    for s in sections:
+        comp_pct = round((s["completed"] / s["total"]) * 100, 1) if s["total"] else 0
+        # rough score logic matching the frontend plan
+        score = round((comp_pct * 0.6) + 40, 1) # Simplified score for CSV if true on-time rate isn't computed in breakdown
+        writer.writerow([
+            s["section"], s["total"], s["completed"], s["pending"],
+            comp_pct, s["avg_processing_days"] or "", score
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=sections_performance_{datetime.utcnow().date()}.csv"},
+    )

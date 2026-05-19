@@ -55,6 +55,13 @@ export const adminApi = {
   auditLog: (params?: Record<string, string | number>) => api.get('/admin/audit-log', { params }),
   slaConfig: () => api.get('/admin/sla-config'),
   updateSla: (id: string, data: Record<string, number>) => api.patch(`/admin/sla-config/${id}`, data),
+  getSections: () => api.get<{id: string, name: string}[]>('/admin/sections'),
+  addSection: (name: string) => api.post('/admin/sections', { name }),
+  deleteSection: (name: string) => api.delete(`/admin/sections/${name}`),
+  employeePerformance: () => api.get('/admin/employee-performance'),
+  monthlyTrend: () => api.get('/admin/monthly-trend'),
+  exportEmployeesCsv: () => api.get('/admin/export-employees-csv', { responseType: 'blob' }),
+  exportSectionsCsv: () => api.get('/admin/export-sections-csv', { responseType: 'blob' }),
 };
 
 export const chatApi = {

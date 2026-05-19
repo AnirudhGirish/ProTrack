@@ -27,9 +27,10 @@ def _get_gemini_model():
         try:
             import google.generativeai as genai
             genai.configure(api_key=settings.GEMINI_API_KEY)
-            _gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+            _gemini_model = genai.GenerativeModel("gemini-2.5-flash-lite")
             _GEMINI_AVAILABLE = True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini: {e}")
             _GEMINI_AVAILABLE = False
             _gemini_model = None
     else:
@@ -94,6 +95,7 @@ Your responses must be:
 - SPECIFIC — always mention section names, file numbers, employee names, and exact counts where relevant.
 - ACTIONABLE — conclude with concrete recommendations whenever possible.
 - PROFESSIONAL but accessible — avoid jargon; this system is used by government staff at all technical levels.
+- CLEAN TEXT ONLY — DO NOT use any markdown formatting (no asterisks `**` or `*`, no hash `#` symbols). Provide purely clean, readable plain text.
 
 CURRENT SYSTEM SNAPSHOT:
 - Total Files in System: {total}
@@ -140,6 +142,12 @@ async def send_message(
     answer = ""
 
     model = _get_gemini_model()
+    
+    # Check if we should use Gemini
+    gemini_error = None
+    if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "your-gemini-api-key-here" and not _GEMINI_AVAILABLE:
+        gemini_error = "google.generativeai module is missing. Please run: pip install google-generativeai"
+
     if model:
         try:
             start = time.time()
@@ -173,10 +181,10 @@ async def send_message(
             llm_provider = "gemini"
         except Exception as e:
             logger.error(f"Gemini API error: {e}")
-            answer = _fallback_response(data.query, productivity_data)
+            answer = _fallback_response(data.query, productivity_data, error_msg=str(e))
             llm_provider = "fallback"
     else:
-        answer = _fallback_response(data.query, productivity_data)
+        answer = _fallback_response(data.query, productivity_data, error_msg=gemini_error)
         llm_provider = "fallback"
 
     assistant_msg = ChatMessage(
@@ -206,23 +214,46 @@ async def send_message(
     }
 
 
-def _fallback_response(query: str, data: dict) -> str:
+def _fallback_response(query: str, data: dict, error_msg: str = None) -> str:
     q = query.lower()
+    
+    if error_msg:
+        prefix = f"**[Offline Mode]** *I am operating in fallback mode due to a Gemini Error: {error_msg}*\n\n"
+    else:
+        prefix = "**[Offline Mode]** *I am operating in fallback mode because no Gemini API key is configured in the `.env` file. For advanced analysis, please configure the API key.*\n\n"
+    
     if "productivity" in q or "summary" in q or "status" in q:
-        return f"Total files: {data['total_files']}. Completed: {data['completed']}. Pending: {data['pending']}. Completion rate: {data['completion_rate']}%."
+        return (f"{prefix}Here is the current productivity summary for the department:\n\n"
+                f"We currently have a total of **{data['total_files']} files** registered in the system. Out of these, **{data['completed']}** have been successfully processed and closed, resulting in a **completion rate of {data['completion_rate']}%**.\n\n"
+                f"There are **{data['pending']} files** currently pending action. The overall average processing time is **{data.get('avg_processing_time_days', 'N/A')} days** per file.")
+                
     if "pending" in q or "old" in q or "overdue" in q:
         old = data.get("old_pending_files", [])
         if old:
-            return f"There are {len(old)} files pending more than 14 days. The oldest is {old[0]['file_no']} ({old[0]['pending_days']} days)."
-        return "No old pending files found beyond the threshold."
+            response = f"{prefix}I found **{len(old)} files** that have been pending for more than 14 days and require immediate attention.\n\nHere are the top most overdue files:\n"
+            for f in old[:5]:
+                response += f"- **File No:** {f['file_no']} (Section: {f['section']}) — Pending for **{f['pending_days']} days**.\n"
+            response += "\nI highly recommend escalating these to the respective Section Heads immediately to avoid further delays."
+            return response
+        return f"{prefix}Great news! There are currently no files pending beyond the 14-day overdue threshold."
+        
     if "section" in q:
         sections = data.get("section_breakdown", [])
         if sections:
             top = sorted(sections, key=lambda s: s["pending"], reverse=True)[:3]
-            parts = [f"{s['section']}: {s['pending']} pending / {s['completed']} completed" for s in top]
-            return "Section summary: " + "; ".join(parts)
-        return "No section data available."
-    return f"As of now, the system has {data['total_files']} files with a {data['completion_rate']}% completion rate. Ask me about specific sections, pending files, or productivity metrics for more details."
+            response = f"{prefix}Here is the breakdown of the most burdened sections based on their pending file volume:\n\n"
+            for s in top:
+                response += f"- **{s['section']}**: Has {s['pending']} files pending out of a total {s['total']} handled (Completed: {s['completed']}).\n"
+            response += "\nThese sections might need additional resources or immediate review of their workflow."
+            return response
+        return f"{prefix}I'm sorry, but I don't have enough data to provide a section breakdown right now."
+        
+    return (f"{prefix}I am an automated assistant. As of now, the system has **{data['total_files']} files** with a **{data['completion_rate']}%** completion rate.\n\n"
+            f"Since I am operating in basic fallback mode, I can only answer simple queries about:\n"
+            f"- **Productivity summary** (e.g., 'What is our status?')\n"
+            f"- **Section performance** (e.g., 'Show section breakdown')\n"
+            f"- **Overdue files** (e.g., 'Are there old pending files?')\n\n"
+            f"Please configure the Gemini API key to enable my advanced analytics and natural conversation features!")
 
 
 @router.get("/sessions")
