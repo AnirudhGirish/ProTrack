@@ -8,7 +8,7 @@
 ![Database](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql)
 ![Deploy](https://img.shields.io/badge/Railway-Backend-0B0D0E?style=for-the-badge&logo=railway)
 ![Deploy](https://img.shields.io/badge/Vercel-Frontend-000000?style=for-the-badge&logo=vercel)
-![AI](https://img.shields.io/badge/Gemini-1.5_Flash-4285F4?style=for-the-badge&logo=google)
+![AI](https://img.shields.io/badge/Gemini-2.5_Flash_Lite-4285F4?style=for-the-badge&logo=google)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
 **An AI-powered, full-stack productivity analytics platform for the Karnataka Forest Department's digital file management ecosystem.**
