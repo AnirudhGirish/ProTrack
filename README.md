@@ -55,7 +55,7 @@ The system replaces a fragmented vanilla HTML + CSV + Flask prototype with a pro
 | No task self-service | Employees self-assign and track files |
 | No AI insights | Gemini LLM chatbot with full data context |
 
-### 🚀 v2.0 Production Stabilization (Latest Updates)
+### v2.0 Production Stabilization (Latest Updates)
 - **Deployment Ready:** Full configuration for zero-downtime deployment using Vercel (Frontend SPA) and Railway (FastAPI Backend + PostgreSQL).
 - **Advanced CSV Exporting:** Cross-browser compliant CSV generation utilizing `Blob` creation with FileSaver techniques, completely resolving Safari download blocking.
 - **Robust DB Initialization:** In-memory deduplication during database seeding prevents `IntegrityError` collisions on startup.
@@ -67,7 +67,7 @@ The system replaces a fragmented vanilla HTML + CSV + Flask prototype with a pro
 
 ## Key Features
 
-### 🏛️ Government-Grade Security
+### Government-Grade Security
 - **JWT authentication** with HS256 signing, configurable expiry
 - **bcrypt** password hashing (cost factor 12)
 - **Role-Based Access Control** — 4 hierarchical roles
@@ -76,7 +76,7 @@ The system replaces a fragmented vanilla HTML + CSV + Flask prototype with a pro
 - **CORS** whitelist — only named origins, never wildcard in production
 - **Request ID tracing** on every request for audit correlation
 
-### 📊 Productivity Analytics
+### Productivity Analytics
 - **Disposal rate** — completed files as % of total
 - **Average turnaround time** — mean processing days per file
 - **Pendency analysis** — section-wise and employee-wise backlog counts
@@ -84,27 +84,27 @@ The system replaces a fragmented vanilla HTML + CSV + Flask prototype with a pro
 - **Underperforming section detection** — configurable SLA thresholds with auto-flagging
 - **Aged file alerts** — files pending beyond configurable day threshold
 
-### 🤖 AI Chatbot (Gemini LLM)
+### AI Chatbot (Gemini LLM)
 - **Live data injection** — full section breakdown, employee leaderboard, aged files in every prompt
 - **Multi-turn conversation** — history maintained per session
 - **Role-aware responses** — admins get org-wide insights; employees get section-personalized answers
 - **Graceful fallback** — rule-based responses if Gemini API is unavailable
 - **Elaborated answers** — instructed to explain numbers, compare to averages, and recommend actions
 
-### 👥 Role-Differentiated Experiences
+### Role-Differentiated Experiences
 - **Admin** — full productivity dashboard, file CRUD, user management, CSV import/export, employee assignment
 - **Section Head** — same as admin but scoped to their section
 - **Employee** — personal lite dashboard, self-service file take-up, status update workflow
 - **Readonly** — analytics viewer, no mutations
 
-### 📁 File Lifecycle Management
+### File Lifecycle Management
 - **6-state FSM**: `received → in_progress → under_review → (approved | returned) → closed`
 - **Status log** — every transition recorded with timestamp, actor, and remarks
 - **Self-assignment** — employee takes up unassigned files in their section
 - **Admin assignment** — assign any file to any active employee
 - **SLA tracking** — per-section configurable day limits
 
-### 📬 Notifications
+### Notifications
 - In-app notification system — file assigned, status changed, SLA breached
 - Unread badge counter in navigation, real-time polling
 
