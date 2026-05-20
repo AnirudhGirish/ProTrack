@@ -62,6 +62,8 @@ The system replaces a fragmented vanilla HTML + CSV + Flask prototype with a pro
 - **Optimized AI Inference:** Switched to the lightning-fast `gemini-2.5-flash-lite` (Flash Lite) model to preserve tokens, reduce latency, and strictly output clean plain text (no markdown formatting).
 - **Graceful Offline Mode:** The chatbot now proactively detects missing API keys or missing Python packages (`google-generativeai`) and falls back to a highly-formatted, descriptive offline analytics mode.
 - **Safe Pagination:** Strict limits on paginated admin API endpoints to prevent integer overflow database failures.
+- **Advanced Employee Productivity Tracking:** Fine-tuned definitions for 'Assigned', 'Self-Taken', 'In Progress', and 'Untouched' files, with an interactive modal to inspect individual workloads.
+- **Quadrant Scatter Visualizations:** Replaced traditional linear heatmaps with dynamic scatter charts mapping employee scores against their total workload across color-coded performance tiers.
 
 ---
 
@@ -80,7 +82,9 @@ The system replaces a fragmented vanilla HTML + CSV + Flask prototype with a pro
 - **Disposal rate** — completed files as % of total
 - **Average turnaround time** — mean processing days per file
 - **Pendency analysis** — section-wise and employee-wise backlog counts
-- **Employee scoring** — `score = (completed × 1.5) − (pending × 0.5)`
+- **Employee scoring** — `score = (completed × 1.5) − (pending × 0.5)` with dynamically mapped Tiering (Marvellous to Needs Improvement)
+- **Quadrant Scatter Charts** — dynamic visualizations mapping performance distributions against workloads
+- **Granular Task Breakdown** — deep-dive modals splitting Admin-assigned vs Self-taken workload
 - **Underperforming section detection** — configurable SLA thresholds with auto-flagging
 - **Aged file alerts** — files pending beyond configurable day threshold
 

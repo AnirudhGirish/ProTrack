@@ -25,7 +25,7 @@ const FEATURES = [
   {
     icon: <BarChart3 className="w-7 h-7" />,
     title: 'Advanced Analytics',
-    desc: 'Interactive dashboards break down section performance, individual workloads, completion rates, and SLA compliance at a glance.',
+    desc: 'Interactive dashboards and dynamic Quadrant Scatter Charts break down section performance, individual workloads, completion rates, and SLA compliance at a glance.',
     color: 'text-morning-600',
     bg: 'bg-morning-50',
     border: 'border-morning-100',
@@ -48,8 +48,8 @@ const FEATURES = [
   },
   {
     icon: <Users className="w-7 h-7" />,
-    title: 'Team Productivity Scores',
-    desc: 'Objective, algorithmic productivity scoring for every employee helps managers identify top performers and those needing support — fairly.',
+    title: 'Granular Productivity Metrics',
+    desc: 'Algorithmic productivity scoring maps employees into performance tiers (Marvellous to Needs Improvement), while deep-dive modals separate Admin-assigned vs Self-taken workload.',
     color: 'text-rose-600',
     bg: 'bg-rose-50',
     border: 'border-rose-100',
@@ -68,7 +68,7 @@ const HOW_IT_WORKS = [
   { step: '01', title: 'Upload & Register Files', desc: 'Admins upload file records via CSV import or manual entry. Each file gets a unique ID, section tag, priority, and due date.' },
   { step: '02', title: 'Assign to Employees', desc: 'Files are assigned to department employees. Instant notifications are dispatched via the system notification center.' },
   { step: '03', title: 'Track Status in Real-Time', desc: 'Employees update file status through their task panel — Received → In Progress → Under Review → Approved → Closed.' },
-  { step: '04', title: 'Analyse & Act', desc: 'The dashboard surfaces bottlenecks, SLA breaches, and underperforming sections so administrators can act before delays compound.' },
+  { step: '04', title: 'Analyse & Act', desc: 'The dashboard surfaces bottlenecks and maps employee performance tiers via dynamic scatter charts, empowering administrators to act before delays compound.' },
 ];
 
 const TRUST_BADGES = [
@@ -154,7 +154,7 @@ export default function LandingPage() {
                 id="hero-get-started-btn"
                 className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-forest-600 to-forest-700 hover:from-forest-700 hover:to-forest-800 text-white font-bold text-base transition shadow-xl shadow-forest-600/25 hover:shadow-forest-700/30 btn-press btn-shimmer w-full sm:w-auto justify-center"
               >
-                Get Started Free <ArrowRight className="w-5 h-5" />
+                Get Started <ArrowRight className="w-5 h-5" />
               </Link>
               <a
                 href="#how-it-works"
