@@ -171,8 +171,8 @@ function OverviewTab({ stats, empPerformance, sectionBreakdown, monthlyTrend }: 
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
-              <XAxis type="number" dataKey="total_assigned" name="Total Files" tick={{ fontSize: 12 }} />
-              <YAxis type="number" dataKey="score" name="Score" tick={{ fontSize: 12 }} />
+              <XAxis type="number" dataKey="jitteredX" name="Total Files" tick={{ fontSize: 12 }} />
+              <YAxis type="number" dataKey="jitteredY" name="Score" tick={{ fontSize: 12 }} />
               <ZAxis type="number" range={[100, 400]} />
               <RechartsTooltip 
                 cursor={{ strokeDasharray: '3 3' }}
@@ -194,7 +194,7 @@ function OverviewTab({ stats, empPerformance, sectionBreakdown, monthlyTrend }: 
               <ReferenceLine y={4} stroke="#cbd5e1" strokeDasharray="3 3" />
               <ReferenceLine y={6} stroke="#cbd5e1" strokeDasharray="3 3" />
               <ReferenceLine y={8} stroke="#cbd5e1" strokeDasharray="3 3" />
-              <Scatter name="Employees" data={empPerformance} shape="circle">
+              <Scatter name="Employees" data={empPerformance.map(emp => ({ ...emp, jitteredX: emp.total_assigned + (Math.random() - 0.5) * 0.15, jitteredY: emp.score + (Math.random() - 0.5) * 0.15 }))} shape="circle">
                 {empPerformance.map((entry, index) => {
                   let fill = '#ef4444';
                   if (entry.tier === 'Marvellous') fill = '#8b5cf6';
