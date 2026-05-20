@@ -4,7 +4,7 @@ import { Card, Spinner, StatCard, SectionHeader } from '../components/common/UIC
 import type { User, File as AppFile } from '../types';
 import toast from 'react-hot-toast';
 import { Users, FileText, CheckCircle, Clock, Upload, Download, Trash2, Plus, Shield, UserCheck, ChevronDown, Edit2, BarChart2, Layers } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, ScatterChart, Scatter, ZAxis, ReferenceLine, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 type AdminTab = 'overview' | 'files' | 'employees' | 'sections' | 'users' | 'import';
 
@@ -164,37 +164,53 @@ function OverviewTab({ stats, empPerformance, sectionBreakdown, monthlyTrend }: 
       </div>
 
       <Card>
-        <SectionHeader title="Employee Performance Heatmap" action={
-          <span className="text-xs text-slate-400">Scores by Tier</span>
+        <SectionHeader title="Employee Performance Quadrant" action={
+          <span className="text-xs text-slate-400">Score vs Total Files</span>
         } />
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mt-4">
-          {empPerformance.map(emp => {
-            const isExcellent = emp.tier === 'Excellent';
-            const isGood = emp.tier === 'Good';
-            return (
-              <div key={emp.employee_id} className={`p-4 rounded-xl border flex flex-col justify-between h-24 ${
-                isExcellent ? 'bg-emerald-50 border-emerald-200' :
-                isGood ? 'bg-blue-50 border-blue-200' :
-                'bg-amber-50 border-amber-200'
-              }`}>
-                <div className="flex justify-between items-start">
-                  <span className={`text-xs font-bold truncate pr-2 ${
-                    isExcellent ? 'text-emerald-800' : isGood ? 'text-blue-800' : 'text-amber-800'
-                  }`}>{emp.username}</span>
-                </div>
-                <div className="flex items-end justify-between">
-                  <span className={`text-2xl font-black ${
-                    isExcellent ? 'text-emerald-600' : isGood ? 'text-blue-600' : 'text-amber-600'
-                  }`}>{emp.score}</span>
-                  <span className={`text-[10px] uppercase font-bold tracking-wider ${
-                    isExcellent ? 'text-emerald-500' : isGood ? 'text-blue-500' : 'text-amber-500'
-                  }`}>
-                    {isExcellent ? 'EXC' : isGood ? 'GOOD' : 'IMP'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+        <div className="h-96 mt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
+              <XAxis type="number" dataKey="total_assigned" name="Total Files" tick={{ fontSize: 12 }} />
+              <YAxis type="number" dataKey="score" name="Score" tick={{ fontSize: 12 }} />
+              <ZAxis type="number" range={[100, 400]} />
+              <RechartsTooltip 
+                cursor={{ strokeDasharray: '3 3' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-white p-3 rounded-lg shadow-md border border-slate-100">
+                        <p className="font-bold text-slate-800">{data.username}</p>
+                        <p className="text-sm text-slate-600">Tier: <span className="font-semibold">{data.tier}</span></p>
+                        <p className="text-sm text-slate-600">Score: <span className="font-semibold">{data.score}</span></p>
+                        <p className="text-sm text-slate-600">Total Files: <span className="font-semibold">{data.total_assigned}</span></p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <ReferenceLine y={4} stroke="#cbd5e1" strokeDasharray="3 3" />
+              <ReferenceLine y={6} stroke="#cbd5e1" strokeDasharray="3 3" />
+              <ReferenceLine y={8} stroke="#cbd5e1" strokeDasharray="3 3" />
+              <Scatter name="Employees" data={empPerformance} shape="circle">
+                {empPerformance.map((entry, index) => {
+                  let fill = '#ef4444';
+                  if (entry.tier === 'Marvellous') fill = '#8b5cf6';
+                  else if (entry.tier === 'Excellent') fill = '#10b981';
+                  else if (entry.tier === 'Good') fill = '#3b82f6';
+                  return <Cell key={`cell-${index}`} fill={fill} />;
+                })}
+              </Scatter>
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex justify-center gap-4 mt-4 text-xs font-semibold">
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-purple-500"></span>Marvellous (≥8)</div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500"></span>Excellent (≥6)</div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500"></span>Good (≥4)</div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-500"></span>Needs Imp. (&lt;4)</div>
         </div>
       </Card>
     </div>
@@ -437,6 +453,23 @@ function FilesTab({ files, users, sections, refresh }: { files: AppFile[]; users
 /* ─── Employees Tab ─────────────────────────── */
 function EmployeesTab({ performance }: { performance: any[] }) {
   const [search, setSearch] = useState('');
+  const [selectedEmp, setSelectedEmp] = useState<any>(null);
+  const [empFiles, setEmpFiles] = useState<any[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+
+  const handleRowClick = async (emp: any) => {
+    setSelectedEmp(emp);
+    setLoadingFiles(true);
+    try {
+      const res = await adminApi.getEmployeeFiles(emp.id);
+      setEmpFiles(res.data);
+    } catch (err) {
+      toast.error('Failed to load employee files');
+      setEmpFiles([]);
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
 
   const filtered = performance.filter(p => 
     (p.username?.toLowerCase() || '').includes(search.toLowerCase()) ||
@@ -462,11 +495,12 @@ function EmployeesTab({ performance }: { performance: any[] }) {
             <tr>
               <th>Employee</th>
               <th>Section</th>
-              <th>Assigned</th>
-              <th>Self-Taken</th>
+              <th>Assigned (By Admin)</th>
+              <th>Self Taken</th>
+              <th>Total Files</th>
               <th>Completed</th>
               <th>In Progress</th>
-              <th>Due</th>
+              <th>Due (Untouched)</th>
               <th>On-Time %</th>
               <th>Score</th>
               <th>Tier</th>
@@ -474,7 +508,7 @@ function EmployeesTab({ performance }: { performance: any[] }) {
           </thead>
           <tbody>
             {filtered.map(p => (
-              <tr key={p.employee_id}>
+              <tr key={p.employee_id} onClick={() => handleRowClick(p)} className="cursor-pointer hover:bg-slate-50 transition">
                 <td>
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-slate-800">{p.full_name || p.username}</span>
@@ -482,8 +516,9 @@ function EmployeesTab({ performance }: { performance: any[] }) {
                   </div>
                 </td>
                 <td className="text-sm text-slate-600">{p.section}</td>
-                <td className="font-semibold text-slate-700">{p.total_assigned}</td>
+                <td className="font-semibold text-slate-700">{p.assigned_by_admin}</td>
                 <td className="text-slate-600">{p.self_taken}</td>
+                <td className="font-bold text-slate-800">{p.total_assigned}</td>
                 <td className="text-emerald-600 font-semibold">{p.completed}</td>
                 <td className="text-blue-600">{p.in_progress}</td>
                 <td className={`font-semibold ${p.due_files > 0 ? 'text-red-500' : 'text-slate-500'}`}>{p.due_files}</td>
@@ -491,6 +526,7 @@ function EmployeesTab({ performance }: { performance: any[] }) {
                 <td className="font-black text-slate-800">{p.score}</td>
                 <td>
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                    p.tier === 'Marvellous' ? 'bg-purple-100 text-purple-800' :
                     p.tier === 'Excellent' ? 'bg-emerald-100 text-emerald-800' :
                     p.tier === 'Good' ? 'bg-blue-100 text-blue-800' :
                     'bg-amber-100 text-amber-800'
@@ -503,6 +539,67 @@ function EmployeesTab({ performance }: { performance: any[] }) {
           </tbody>
         </table>
       </div>
+      
+      {selectedEmp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setSelectedEmp(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-6 border-b border-slate-100">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">{selectedEmp.full_name || selectedEmp.username}</h2>
+                <p className="text-sm text-slate-500">Employee Files Overview</p>
+              </div>
+              <button onClick={() => setSelectedEmp(null)} className="text-slate-400 hover:text-slate-600 p-2">✕</button>
+            </div>
+            
+            <div className="p-6 overflow-auto flex-1 bg-slate-50/50">
+              {loadingFiles ? (
+                <div className="flex justify-center items-center h-40">
+                  <Spinner />
+                </div>
+              ) : empFiles.length === 0 ? (
+                <div className="text-center text-slate-500 py-10 font-medium bg-white rounded-xl border border-dashed border-slate-300">No files assigned.</div>
+              ) : (
+                <table className="data-table bg-white rounded-xl shadow-sm border border-slate-200">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th>File No</th>
+                      <th>Subject</th>
+                      <th>Source</th>
+                      <th>Status</th>
+                      <th>Priority</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {empFiles.map(f => (
+                      <tr key={f.id}>
+                        <td className="font-mono text-xs">{f.file_no}</td>
+                        <td className="font-semibold text-slate-700">{f.subject}</td>
+                        <td>
+                          {f.assigned_by_self ? (
+                            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">Self Taken</span>
+                          ) : (
+                            <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-md border border-purple-100">Assigned</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`px-2 py-1 rounded text-xs font-semibold uppercase tracking-wider ${STATUS_COLORS[f.status] || 'bg-slate-100 text-slate-700'}`}>
+                            {f.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${f.priority === 'urgent' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
+                            {f.priority}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

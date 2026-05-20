@@ -404,13 +404,13 @@ async def export_employees_csv(
     output = io.StringIO()
     writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
     writer.writerow([
-        "Employee_ID", "Username", "Full_Name", "Section", "Total_Assigned",
-        "Self_Taken", "Completed", "In_Progress", "Due_Files", "On_Time_PCT", "Score", "Tier"
+        "Employee_ID", "Username", "Full_Name", "Section", "Assigned_By_Admin",
+        "Self_Taken", "Total_Files", "Completed", "In_Progress", "Due_Files", "On_Time_PCT", "Score", "Tier"
     ])
     for p in perfs:
         writer.writerow([
             p["employee_id"], p["username"], p["full_name"], p["section"],
-            p["total_assigned"], p["self_taken"], p["completed"], p["in_progress"],
+            p["assigned_by_admin"], p["self_taken"], p["total_assigned"], p["completed"], p["in_progress"],
             p["due_files"], p["on_time_pct"], p["score"], p["tier"]
         ])
     output.seek(0)
@@ -449,3 +449,40 @@ async def export_sections_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=sections_performance_{datetime.utcnow().date()}.csv"},
     )
+
+
+@router.get("/employees/{employee_id}/files")
+async def get_employee_files(
+    employee_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    from models.assignment import EmployeeAssignment
+    from models.file import File
+    
+    assignments = db.query(EmployeeAssignment).filter(
+        EmployeeAssignment.employee_id == employee_id,
+        EmployeeAssignment.unassigned_at.is_(None)
+    ).all()
+    
+    if not assignments:
+        return []
+        
+    file_ids = [a.file_id for a in assignments]
+    files = db.query(File).filter(File.id.in_(file_ids)).all()
+    
+    assignment_map = {a.file_id: a for a in assignments}
+    
+    result = []
+    for f in files:
+        a = assignment_map[f.id]
+        result.append({
+            "id": f.id,
+            "file_no": f.file_no,
+            "subject": f.subject,
+            "status": f.status,
+            "priority": f.priority,
+            "due_date": f.due_date,
+            "assigned_by_self": a.assigned_by == employee_id
+        })
+    return result

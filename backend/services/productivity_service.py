@@ -199,16 +199,19 @@ def get_employee_performance(db: Session) -> List[Dict]:
         
         total_assigned = len(assignments)
         self_taken = sum(1 for a in assignments if a.assigned_by == emp.id)
+        assigned_by_admin = total_assigned - self_taken
         
         file_ids = [a.file_id for a in assignments]
         if not file_ids:
             results.append({
+                "id": emp.id,
                 "employee_id": emp.employee_id or emp.id,
                 "username": emp.username,
                 "full_name": emp.full_name or "",
                 "section": emp.section or "",
-                "total_assigned": 0,
+                "assigned_by_admin": 0,
                 "self_taken": 0,
+                "total_assigned": 0,
                 "completed": 0,
                 "in_progress": 0,
                 "due_files": 0,
@@ -220,30 +223,34 @@ def get_employee_performance(db: Session) -> List[Dict]:
 
         files = db.query(File).filter(File.id.in_(file_ids)).all()
         completed = sum(1 for f in files if f.status == "closed")
-        in_progress = sum(1 for f in files if f.status == "in_progress")
+        in_progress = sum(1 for f in files if f.status != "closed")
         pending = len(files) - completed
         
-        due_files = sum(1 for f in files if f.due_date and f.due_date < today and f.status != "closed")
+        due_files = sum(1 for f in files if f.status == "received")
         
         files_with_due_date = [f for f in files if f.due_date and f.status == "closed"]
         on_time = sum(1 for f in files_with_due_date if f.closed_date and f.closed_date <= f.due_date)
         on_time_pct = round((on_time / len(files_with_due_date)) * 100, 1) if files_with_due_date else 100.0
 
         score = round((completed * 1.5) - (pending * 0.5), 2)
-        if score >= 10:
+        if score >= 8:
+            tier = "Marvellous"
+        elif score >= 6:
             tier = "Excellent"
-        elif score >= 5:
+        elif score >= 4:
             tier = "Good"
         else:
             tier = "Needs Improvement"
             
         results.append({
+            "id": emp.id,
             "employee_id": emp.employee_id or emp.id,
             "username": emp.username,
             "full_name": emp.full_name or "",
             "section": emp.section or "",
-            "total_assigned": total_assigned,
+            "assigned_by_admin": assigned_by_admin,
             "self_taken": self_taken,
+            "total_assigned": total_assigned,
             "completed": completed,
             "in_progress": in_progress,
             "due_files": due_files,

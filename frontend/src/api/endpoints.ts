@@ -59,6 +59,7 @@ export const adminApi = {
   addSection: (name: string) => api.post('/admin/sections', { name }),
   deleteSection: (name: string) => api.delete(`/admin/sections/${name}`),
   employeePerformance: () => api.get('/admin/employee-performance'),
+  getEmployeeFiles: (id: string) => api.get(`/admin/employees/${id}/files`),
   monthlyTrend: () => api.get('/admin/monthly-trend'),
   exportEmployeesCsv: () => api.get('/admin/export-employees-csv', { responseType: 'blob' }),
   exportSectionsCsv: () => api.get('/admin/export-sections-csv', { responseType: 'blob' }),
