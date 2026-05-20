@@ -132,8 +132,15 @@ async def update_file_status(
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
-    if current_user.role == "employee" and str(file.assigned_to) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="You can only update status of files assigned to you")
+    if current_user.role == "employee":
+        from models.assignment import EmployeeAssignment
+        active_assignment = db.query(EmployeeAssignment).filter(
+            EmployeeAssignment.file_id == file_id,
+            EmployeeAssignment.employee_id == current_user.id,
+            EmployeeAssignment.unassigned_at.is_(None)
+        ).first()
+        if not active_assignment:
+            raise HTTPException(status_code=403, detail="You can only update status of files assigned to you")
 
     try:
         change_file_status(db, file, data.to_status, current_user.id, data.remarks)
@@ -153,6 +160,12 @@ async def delete_file(
     file = db.query(File).filter(File.id == file_id).first()
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
+
+    from models.file_status_log import FileStatusLog
+    from models.assignment import EmployeeAssignment
+
+    db.query(FileStatusLog).filter(FileStatusLog.file_id == file_id).delete(synchronize_session=False)
+    db.query(EmployeeAssignment).filter(EmployeeAssignment.file_id == file_id).delete(synchronize_session=False)
 
     db.delete(file)
     db.commit()
